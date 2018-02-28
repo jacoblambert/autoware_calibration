@@ -49,6 +49,8 @@ import tarfile
 import time
 from distutils.version import LooseVersion
 
+import matlab.engine
+eng = matlab.engine.start_matlab()
 
 # Supported calibration patterns
 class Patterns:
@@ -142,14 +144,21 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
         mono = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         mono = img
-    (ok, corners) = cv2.findChessboardCorners(mono, (board.n_cols, board.n_rows), flags = cv2.CALIB_CB_ADAPTIVE_THRESH |
-                                              cv2.CALIB_CB_NORMALIZE_IMAGE | checkerboard_flags)
+    # (ok, corners) = cv2.findChessboardCorners(mono, (board.n_cols, board.n_rows), flags = cv2.CALIB_CB_ADAPTIVE_THRESH |
+    #                                          cv2.CALIB_CB_NORMALIZE_IMAGE | checkerboard_flags)
+    cv2.imwrite("temp_image.jpg", img)
+    (mlcorners, boardsize, ok) = eng.detectCheckerboardPoints("temp_image.jpg", nargout=3)
+    corners = numpy.array(mlcorners._data).reshape(mlcorners.size[::-1]).T
+    if corners.size != (2*board.n_rows*board.n_cols):
+        ok = 0
+    corners = corners.reshape((corners.size/2, 1, 2))
     if not ok:
         return (ok, corners)
 
     # If any corners are within BORDER pixels of the screen edge, reject the detection by setting ok to false
     # NOTE: This may cause problems with very low-resolution cameras, where 8 pixels is a non-negligible fraction
     # of the image size. See http://answers.ros.org/question/3155/how-can-i-calibrate-low-resolution-cameras
+
     BORDER = 8
     if not all([(BORDER < corners[i, 0, 0] < (w - BORDER)) and (BORDER < corners[i, 0, 1] < (h - BORDER)) for i in range(corners.shape[0])]):
         ok = False
@@ -168,7 +177,8 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
                 corners=numpy.rot90(corners.reshape(board.n_rows,board.n_cols,2)).reshape(board.n_cols*board.n_rows,1,2)
             else:
                 corners=numpy.rot90(corners.reshape(board.n_rows,board.n_cols,2),3).reshape(board.n_cols*board.n_rows,1,2)
-
+    print(corners.shape)
+    print(corners)
     if refine and ok:
         # Use a radius of half the minimum distance between corners. This should be large enough to snap to the
         # correct corner, but not so large as to include a wrong corner in the search window.
@@ -346,7 +356,7 @@ class Calibrator(object):
             opts.append(opts_loc)
         return opts
 
-    def get_corners(self, img, refine = True):
+    def get_corners(self, img, refine = False):
         """
         Use cvFindChessboardCorners to find corners of chessboard in image.
 

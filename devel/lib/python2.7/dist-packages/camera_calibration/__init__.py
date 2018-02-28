@@ -7,7 +7,7 @@ from sys import path as sys_path
 
 from pkgutil import extend_path
 
-__extended_path = "/home/kusanagi/Documents/workspaces/autoware_calibrator/src/camera_calibrator/src".split(";")
+__extended_path = "/home/kusanagi/Documents/Workspaces/autoware_calibration/src/camera_calibrator/src".split(";")
 for p in reversed(__extended_path):
     sys_path.insert(0, p)
     del p

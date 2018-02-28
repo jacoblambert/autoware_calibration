@@ -1,2 +1,2 @@
 camera_calibrator
--DCATKIN_DEVEL_PREFIX=/home/kusanagi/Documents/workspaces/autoware_calibrator/devel -DCMAKE_INSTALL_PREFIX=/home/kusanagi/Documents/workspaces/autoware_calibrator/install -G Unix Makefiles
+-DCATKIN_DEVEL_PREFIX=/home/kusanagi/Documents/Workspaces/autoware_calibration/devel -DCMAKE_INSTALL_PREFIX=/home/kusanagi/Documents/Workspaces/autoware_calibration/install -G Unix Makefiles
