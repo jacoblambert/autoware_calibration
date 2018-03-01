@@ -49,9 +49,6 @@ import tarfile
 import time
 from distutils.version import LooseVersion
 
-import matlab.engine
-eng = matlab.engine.start_matlab()
-
 # Supported calibration patterns
 class Patterns:
     Chessboard, Circles, ACircles = list(range(3))
@@ -134,7 +131,7 @@ def _get_area(corners, board):
     q = a + b
     return abs(p[0]*q[1] - p[1]*q[0]) / 2.
 
-def _get_corners(img, board, refine = True, checkerboard_flags=0):
+def _get_corners(img, board, detection, refine = False, checkerboard_flags=0):
     """
     Get corners for a particular chessboard for an image
     """
@@ -144,14 +141,18 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
         mono = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         mono = img
-    # (ok, corners) = cv2.findChessboardCorners(mono, (board.n_cols, board.n_rows), flags = cv2.CALIB_CB_ADAPTIVE_THRESH |
-    #                                          cv2.CALIB_CB_NORMALIZE_IMAGE | checkerboard_flags)
-    cv2.imwrite("temp_image.jpg", img)
-    (mlcorners, boardsize, ok) = eng.detectCheckerboardPoints("temp_image.jpg", nargout=3)
-    corners = numpy.array(mlcorners._data).reshape(mlcorners.size[::-1]).T
-    if corners.size != (2*board.n_rows*board.n_cols):
-        ok = 0
-    corners = corners.reshape((corners.size/2, 1, 2))
+
+    if detection == "cv2":
+        (ok, corners) = cv2.findChessboardCorners(mono, (board.n_cols, board.n_rows), flags = cv2.CALIB_CB_ADAPTIVE_THRESH |
+                                                cv2.CALIB_CB_NORMALIZE_IMAGE | checkerboard_flags)
+    elif detection == "matlab":
+        cv2.imwrite("temp_image.jpg", img)
+        (mlcorners, boardsize, ok) = matlabeng.detectCheckerboardPoints("temp_image.jpg", nargout=3)
+        corners = numpy.array(mlcorners)
+        corners = corners.astype(numpy.float32).reshape((corners.size/2, 1, 2))
+        if corners.size != (2*board.n_rows*board.n_cols):
+            ok = 0
+
     if not ok:
         return (ok, corners)
 
@@ -177,8 +178,6 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
                 corners=numpy.rot90(corners.reshape(board.n_rows,board.n_cols,2)).reshape(board.n_cols*board.n_rows,1,2)
             else:
                 corners=numpy.rot90(corners.reshape(board.n_rows,board.n_cols,2),3).reshape(board.n_cols*board.n_rows,1,2)
-    print(corners.shape)
-    print(corners)
     if refine and ok:
         # Use a radius of half the minimum distance between corners. This should be large enough to snap to the
         # correct corner, but not so large as to include a wrong corner in the search window.
@@ -192,7 +191,7 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
                 index = row*board.n_rows + col
                 min_distance = min(min_distance, _pdist(corners[index, 0], corners[index + board.n_cols, 0]))
         radius = int(math.ceil(min_distance * 0.5))
-        cv2.cornerSubPix(mono, corners, (radius,radius), (-1,-1),
+        cv2.cornerSubPix(mono, corners, (radius, radius), (-1,-1),
                                       ( cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1 ))
 
     return (ok, corners)
@@ -228,7 +227,7 @@ class Calibrator(object):
     """
     Base class for calibration system
     """
-    def __init__(self, boards, flags=0, pattern=Patterns.Chessboard, name='', checkerboard_flags=cv2.CALIB_CB_FAST_CHECK):
+    def __init__(self, boards, flags=0, pattern=Patterns.Chessboard, name='', detection='', output='yaml', checkerboard_flags=cv2.CALIB_CB_FAST_CHECK):
         # Ordering the dimensions for the different detectors is actually a minefield...
         if pattern == Patterns.Chessboard:
             # Make sure n_cols > n_rows to agree with OpenCV CB detector output
@@ -257,6 +256,13 @@ class Calibrator(object):
         self.goodenough = False
         self.param_ranges = [0.7, 0.7, 0.4, 0.5]
         self.name = name
+        self.detection = detection
+        if detection == "matlab":
+            import matlab.engine
+            global matlabeng
+            matlabeng = matlab.engine.start_matlab()
+
+        self.output = output
 
     def mkgray(self, msg):
         """
@@ -356,7 +362,7 @@ class Calibrator(object):
             opts.append(opts_loc)
         return opts
 
-    def get_corners(self, img, refine = False):
+    def get_corners(self, img, refine = True):
         """
         Use cvFindChessboardCorners to find corners of chessboard in image.
 
@@ -368,7 +374,7 @@ class Calibrator(object):
 
         for b in self._boards:
             if self.pattern == Patterns.Chessboard:
-                (ok, corners) = _get_corners(img, b, refine, self.checkerboard_flags)
+                (ok, corners) = _get_corners(img, b, self.detection, True, self.checkerboard_flags)
             else:
                 (ok, corners) = _get_circles(img, b, self.pattern)
             if ok:

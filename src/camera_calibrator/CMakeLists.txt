@@ -15,7 +15,8 @@ catkin_package()
 
 catkin_python_setup()
 
-catkin_install_python(PROGRAMS nodes/cameracalibrator.py
+catkin_install_python(PROGRAMS 
+  nodes/cameracalibrator.py
   nodes/cameracheck.py
   scripts/tarfile_calibration.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -49,6 +49,12 @@ def main():
     parser.add_option("-c", "--camera_name",
                      type="string", default='narrow_stereo',
                      help="name of the camera to appear in the calibration file")
+    parser.add_option("-o", "--output",
+                     type="string", default="yaml",
+                     help="type of output - 'yaml' or 'tar'")
+    parser.add_option("-d", "--detection",
+                     type="string", default="cv2",
+                     help="Chessboard detection algorithm, OpenCV2 or Matlab (python matlab engine) - 'cv2', 'matlab'")
     group = OptionGroup(parser, "Chessboard Options",
                         "You must specify one or more chessboards as pairs of --size and --square options.")
     group.add_option("-p", "--pattern",
@@ -85,10 +91,19 @@ def main():
     group.add_option("--disable_calib_cb_fast_check", action='store_true', default=False,
                      help="uses the CALIB_CB_FAST_CHECK flag for findChessboardCorners")
     parser.add_option_group(group)
+
     options, args = parser.parse_args()
 
     if len(options.size) != len(options.square):
         parser.error("Number of size and square inputs must be the same!")
+
+    if options.detection == "cv2":
+        print('Using OpenCV 2 for chessboard corner detection')
+    elif options.detection == "matlab":
+        print('Using matlab for chessboard corner detection')
+    else:
+        print('Unrecognized detection method %s, defaulting to OpenCV 2' % options.detection)
+        options.detection = "cv2"
 
     if not options.square:
         options.square.append("0.108")
@@ -143,7 +158,7 @@ def main():
 
     rospy.init_node('cameracalibrator')
     node = OpenCVCalibrationNode(boards, options.service_check, sync, calib_flags, pattern, options.camera_name,
-                                 checkerboard_flags=checkerboard_flags)
+                                 options.detection, options.output, checkerboard_flags=checkerboard_flags)
     rospy.spin()
 
 if __name__ == "__main__":
