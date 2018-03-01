@@ -1,8 +1,0 @@
-prefix=/home/kusanagi/Documents/Workspaces/autoware_calibration/devel
-
-Name: camera_calibrator
-Description: Description of camera_calibrator
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/kusanagi/Documents/Workspaces/autoware_calibration/devel/lib 
-Requires: 
