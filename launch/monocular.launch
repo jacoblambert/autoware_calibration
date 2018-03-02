@@ -1,0 +1,10 @@
+<launch>
+  <node name="camera_calibrator" pkg="camera_calibrator" type="cameracalibrator.py" output="screen"
+  args="
+   --size 7x5
+   --square 0.028
+   --detection matlab
+   image:=/usb_cam/image_raw
+   ">
+   </node>
+</launch>

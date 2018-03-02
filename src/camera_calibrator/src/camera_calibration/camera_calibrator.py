@@ -92,7 +92,7 @@ class ConsumerThread(threading.Thread):
 
 class CalibrationNode:
     def __init__(self, boards, service_check = True, synchronizer = message_filters.TimeSynchronizer, flags = 0,
-                 pattern=Patterns.Chessboard, camera_name='', detection='cv2', out='yaml', checkerboard_flags = 0):
+                 pattern=Patterns.Chessboard, camera_name='', detection='cv2', output='yaml', checkerboard_flags = 0):
         if service_check:
             # assume any non-default service names have been set.  Wait for the service to become ready
             for svcname in ["camera", "left_camera", "right_camera"]:
@@ -108,7 +108,7 @@ class CalibrationNode:
                         rospy.signal_shutdown('Quit')
         self._boards = boards
         self._detection = detection
-        self._output = out
+        self._output = output
         self._calib_flags = flags
         self._checkerboard_flags = checkerboard_flags
         self._pattern = pattern
@@ -156,7 +156,7 @@ class CalibrationNode:
         if self.c == None:
             if self._camera_name:
                 self.c = MonoCalibrator(self._boards, self._calib_flags, self._pattern, name=self._camera_name,
-                    detection=self._detection, output=self._output, checkerboard_flags=self._checkerboard_flags)
+                    detection=self._detection, output = self._output, checkerboard_flags=self._checkerboard_flags)
             else:
                 self.c = MonoCalibrator(self._boards, self._calib_flags, self._pattern, detection=self._detection,
                                         output=self._output, checkerboard_flags=self.checkerboard_flags)

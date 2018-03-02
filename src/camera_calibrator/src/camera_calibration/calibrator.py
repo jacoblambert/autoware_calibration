@@ -150,6 +150,7 @@ def _get_corners(img, board, detection, refine = False, checkerboard_flags=0):
         (mlcorners, boardsize, ok) = matlabeng.detectCheckerboardPoints("temp_image.jpg", nargout=3)
         corners = numpy.array(mlcorners)
         corners = corners.astype(numpy.float32).reshape((corners.size/2, 1, 2))
+        # corners = corners[corners[:, 1].argsort()].reshape((corners.size/2, 1, 2))
         if corners.size != (2*board.n_rows*board.n_cols):
             ok = 0
 
@@ -227,7 +228,7 @@ class Calibrator(object):
     """
     Base class for calibration system
     """
-    def __init__(self, boards, flags=0, pattern=Patterns.Chessboard, name='', detection='', output='yaml', checkerboard_flags=cv2.CALIB_CB_FAST_CHECK):
+    def __init__(self, boards, flags=0, pattern=Patterns.Chessboard, name='', detection='cv2, output='yaml', checkerboard_flags=cv2.CALIB_CB_FAST_CHECK):
         # Ordering the dimensions for the different detectors is actually a minefield...
         if pattern == Patterns.Chessboard:
             # Make sure n_cols > n_rows to agree with OpenCV CB detector output
@@ -260,10 +261,10 @@ class Calibrator(object):
         if detection == "matlab":
             import matlab.engine
             global matlabeng
-            matlabeng = matlab.engine.start_matlab()
-
+            matlabeng = matlab.engine.start_matlab() # because start matlab is super slow
+            import warnings
+            warnings.filterwarnings('ignore', '.*asymmetric.*', )
         self.output = output
-
     def mkgray(self, msg):
         """
         Convert a message into a 8-bit 1 channel monochrome OpenCV image
@@ -523,9 +524,8 @@ class Calibrator(object):
         + "  data: [" + ", ".join(["%8f" % i for i in p.reshape(1,12)[0]]) + "]\n"
         + "")
         return calmessage
-
     def do_save(self):
-        filename = '/tmp/calibrationdata.tar.gz'
+        filename = 'calibrationdata.tar.gz'
         tf = tarfile.open(filename, 'w:gz')
         self.do_tarfile_save(tf) # Must be overridden in subclasses
         tf.close()
@@ -802,7 +802,7 @@ class MonoCalibrator(Calibrator):
         # Dump should only occur if user wants it
         if dump:
             pickle.dump((self.is_mono, self.size, self.good_corners),
-                        open("/tmp/camera_calibration_%08x.pickle" % random.getrandbits(32), "w"))
+                        open("camera_calibration_%08x.pickle" % random.getrandbits(32), "w"))
         self.size = (self.db[0][1].shape[1], self.db[0][1].shape[0]) # TODO Needs to be set externally
         self.cal_fromcorners(self.good_corners)
         self.calibrated = True
@@ -829,6 +829,33 @@ class MonoCalibrator(Calibrator):
             taradd(name, cv2.imencode(".png", im)[1].tostring())
         taradd('ost.yaml', self.yaml())
         taradd('ost.txt', self.ost())
+
+    def opencv_matrix_constructor(self, loader, node):
+        mapping = loader.construct_mapping(node, deep=True)
+        mat = numpy.array(mapping["data"])
+        mat.resize(mapping["rows"], mapping["cols"])
+        return mat
+
+    def opencv_matrix_representer(self, dumper, mat):
+        mapping = {'rows': mat.shape[0], 'cols': mat.shape[1], 'dt': 'd', 'data': mat.reshape(-1).tolist()}
+        return dumper.represent_mapping(u"tag:yaml.org,2002:opencv-matrix", mapping)
+
+    def do_autoware_yaml(self):
+        yaml.add_constructor(u"tag:yaml.org,2002:opencv-matrix", self.opencv_matrix_constructor)
+        yaml.add_representer(numpy.ndarray, self.opencv_matrix_representer)
+        # camera_name = self.name
+        distortion = self.distortion
+        intrinsics = self.intrinsics
+        reproj_error = 0.0
+        # self.R, self.P
+        fn = camera_name + '.yaml'
+        with open(fn, 'w') as f:
+            f.write("%YAML:1.0")
+            yaml.dump({"CameraExtrinsics": numpy.eye(4),
+                       "CameraMat": intrinsics,
+                       "DistCoeff": distortion}, f)
+            f.write("ImageSize: [" + str(self.size[0]) + ", " + str(self.size[1]) + "]")
+            f.write("Reprojection Error: " + str(reproj_error))
 
     def do_tarfile_calibration(self, filename):
         archive = tarfile.open(filename, 'r')
@@ -1121,7 +1148,7 @@ class StereoCalibrator(Calibrator):
         # Dump should only occur if user wants it
         if dump:
             pickle.dump((self.is_mono, self.size, self.good_corners),
-                        open("/tmp/camera_calibration_%08x.pickle" % random.getrandbits(32), "w"))
+                        open("camera_calibration_%08x.pickle" % random.getrandbits(32), "w"))
         self.size = (self.db[0][1].shape[1], self.db[0][1].shape[0]) # TODO Needs to be set externally
         self.l.size = self.size
         self.r.size = self.size

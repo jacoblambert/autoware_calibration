@@ -105,6 +105,14 @@ def main():
         print('Unrecognized detection method %s, defaulting to OpenCV 2' % options.detection)
         options.detection = "cv2"
 
+    if options.output == "yaml":
+            print('Saving as autoware yaml')
+    elif options.output == "tar":
+            print('Saving as tar')
+    else:
+            print('Unrecognized output method %s, defaulting to Autoware Yaml' % options.output)
+            options.output = "yaml"
+
     if not options.square:
         options.square.append("0.108")
         options.size.append("8x6")
