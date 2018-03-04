@@ -850,11 +850,11 @@ class MonoCalibrator(Calibrator):
         # self.R, self.P
         fn = camera_name + '.yaml'
         with open(fn, 'w') as f:
-            f.write("%YAML:1.0")
+            f.write("%YAML:1.0\n")
             yaml.dump({"CameraExtrinsics": numpy.eye(4),
                        "CameraMat": intrinsics,
                        "DistCoeff": distortion}, f)
-            f.write("ImageSize: [" + str(self.size[0]) + ", " + str(self.size[1]) + "]")
+            f.write("ImageSize: [" + str(self.size[0]) + ", " + str(self.size[1]) + "]\n")
             f.write("Reprojection Error: " + str(reproj_error))
 
     def do_tarfile_calibration(self, filename):
